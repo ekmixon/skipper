@@ -114,15 +114,25 @@ def build(ctx, images_to_build, container_context, cache):
             utils.logger.warning('Dockerfile %(dockerfile)s does not exist! Skipping...', dict(dockerfile=dockerfile))
             continue
 
-        fqdn_image = image + ':' + tag
+        fqdn_image = f'{image}:{tag}'
         if container_context is not None:
             build_context = container_context
         elif ctx.obj['container_context']:
             build_context = ctx.obj['container_context']
         else:
             build_context = os.path.dirname(dockerfile)
-        command = ['build', '--network=host', '--build-arg', 'TAG={}'.format(tag),
-                   '-f', dockerfile, '-t', fqdn_image, build_context]
+        command = [
+            'build',
+            '--network=host',
+            '--build-arg',
+            f'TAG={tag}',
+            '-f',
+            dockerfile,
+            '-t',
+            fqdn_image,
+            build_context,
+        ]
+
         if cache:
             cache_image = utils.generate_fqdn_image(ctx.obj['registry'], namespace=None, image=image, tag=DOCKER_TAG_FOR_CACHE)
             runner.run(['pull', cache_image])
@@ -158,13 +168,13 @@ def push(ctx, namespace, force, pbr, image):
     if pbr:
         # Format = pbr_version.short_hash
         # pylint: disable=protected-access
-        tag_to_push = "{}.{}".format(packaging._get_version_from_git().replace('dev', ''), tag[:8])
-    image_name = image + ':' + tag
+        tag_to_push = (
+            f"{packaging._get_version_from_git().replace('dev', '')}.{tag[:8]}"
+        )
 
-    ret = _push(ctx, force, image, image_name, namespace, tag_to_push)
-    if ret != 0:
-        return ret
-    return ret
+    image_name = f'{image}:{tag}'
+
+    return _push(ctx, force, image, image_name, namespace, tag_to_push)
 
 
 def _push(ctx, force, image, image_name, namespace, tag):
@@ -381,7 +391,7 @@ def _prepare_build_container(registry, image, tag, git_revision, container_conte
 
     if tag is not None:
 
-        tagged_image_name = image + ':' + tag
+        tagged_image_name = f'{image}:{tag}'
 
         if utils.local_image_exist(image, tag):
             utils.logger.info("Using build container: %(image_name)s", dict(image_name=tagged_image_name))
@@ -402,11 +412,7 @@ def _prepare_build_container(registry, image, tag, git_revision, container_conte
 
     docker_file = utils.image_to_dockerfile(image)
     utils.logger.info("Building image using docker file: %(docker_file)s", dict(docker_file=docker_file))
-    if container_context is not None:
-        build_context = container_context
-    else:
-        build_context = '.'
-
+    build_context = container_context if container_context is not None else '.'
     command = ['build', '--network=host', '-t', tagged_image_name, '-f', docker_file, build_context]
     if use_cache:
         cache_image = utils.generate_fqdn_image(registry, namespace=None, image=image, tag=DOCKER_TAG_FOR_CACHE)
@@ -447,18 +453,18 @@ def _expend_env(ctx, extra_env):
     if isinstance(env, dict):
         for key, value in six.iteritems(env):
             utils.logger.debug("Adding %s=%s to environment", key, value)
-            environment.append("{}={}".format(key, value))
+            environment.append(f"{key}={value}")
     elif isinstance(env, list):
         for item in env:
             if '=' in item:
                 # if the items is of the form 'a=b', add it to the environment list
                 environment.append(item)
-            else:
-                # if the items is just a name of environment variable, try to get it
-                # from the host's environment variables
-                if item in os.environ:
-                    environment.append('{}={}'.format(item, os.environ[item]))
+            elif item in os.environ:
+                environment.append(f'{item}={os.environ[item]}')
     else:
-        raise TypeError('Type {} not supported for key env, use dict or list instead'.format(type(env)))
+        raise TypeError(
+            f'Type {type(env)} not supported for key env, use dict or list instead'
+        )
+
 
     return environment + list(extra_env)

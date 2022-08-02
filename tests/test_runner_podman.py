@@ -12,7 +12,7 @@ GROUP_ID = 2000
 REGISTRY = 'registry.io:5000'
 IMAGE = 'image'
 TAG = '1234567'
-FQDN_IMAGE = REGISTRY + '/' + IMAGE + ':' + TAG
+FQDN_IMAGE = f'{REGISTRY}/{IMAGE}:{TAG}'
 
 WORKDIR = '/home/adir/work'
 HOME_DIR = '/home/adir'

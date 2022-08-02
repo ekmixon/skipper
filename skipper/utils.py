@@ -13,8 +13,8 @@ import pkg_resources
 
 
 REGISTRY_BASE_URL = 'https://%(registry)s/v2/'
-IMAGE_TAGS_URL = REGISTRY_BASE_URL + '%(image)s/tags/list'
-MANIFEST_URL = REGISTRY_BASE_URL + '%(image)s/manifests/%(reference)s'
+IMAGE_TAGS_URL = f'{REGISTRY_BASE_URL}%(image)s/tags/list'
+MANIFEST_URL = f'{REGISTRY_BASE_URL}%(image)s/manifests/%(reference)s'
 DOCKER = "docker"
 PODMAN = "podman"
 
@@ -39,12 +39,14 @@ def configure_logging(name, level):
 
 def get_images_from_dockerfiles():
     dockerfiles = glob.glob(image_to_dockerfile('*'))
-    images = {dockerfile_to_image(dockerfile): dockerfile for dockerfile in dockerfiles}
-    return images
+    return {
+        dockerfile_to_image(dockerfile): dockerfile
+        for dockerfile in dockerfiles
+    }
 
 
 def local_image_exist(image, tag):
-    name = image + ':' + tag
+    name = f'{image}:{tag}'
     command = [
         'images',
         '--format', '{{.ID}}',
@@ -99,11 +101,8 @@ def get_remote_image_info(image, registry, username, password):
     if response.ok:
         if info['tags']:
             image_info += [[registry, image, tag] for tag in info['tags']]
-    else:
-        if info['errors'][0]['code'] in ['NAME_UNKNOWN', 'NOT_FOUND']:
-            pass
-        else:
-            raise Exception(info)
+    elif info['errors'][0]['code'] not in ['NAME_UNKNOWN', 'NOT_FOUND']:
+        raise Exception(info)
 
     return image_info
 
@@ -125,23 +124,23 @@ def delete_image_from_registry(registry, image, tag, username, password):
 
 
 def delete_local_image(image, tag):
-    name = image + ':' + tag
+    name = f'{image}:{tag}'
     run_container_command(['rmi', name])
 
 
 def generate_fqdn_image(registry, namespace, image, tag='latest'):
     fqdn_image = image
     if namespace is not None:
-        fqdn_image = namespace + '/' + fqdn_image
+        fqdn_image = f'{namespace}/{fqdn_image}'
     if registry is not None:
-        fqdn_image = registry + '/' + fqdn_image
+        fqdn_image = f'{registry}/{fqdn_image}'
     if tag is not None:
-        fqdn_image = fqdn_image + ':' + tag
+        fqdn_image = f'{fqdn_image}:{tag}'
     return fqdn_image
 
 
 def image_to_dockerfile(image):
-    return 'Dockerfile.' + image
+    return f'Dockerfile.{image}'
 
 
 def dockerfile_to_image(dockerfile):
@@ -161,12 +160,12 @@ def get_runtime_command():
         elif is_tool(PODMAN):
             CONTAINER_RUNTIME_COMMAND = PODMAN
         else:
-            raise Exception("Nor %s nor %s are installed" % (PODMAN, DOCKER))
+            raise Exception(f"Nor {PODMAN} nor {DOCKER} are installed")
     return CONTAINER_RUNTIME_COMMAND
 
 
 def get_extra_file(filename):
-    return pkg_resources.resource_filename("skipper", "data/%s" % filename)
+    return pkg_resources.resource_filename("skipper", f"data/{filename}")
 
 
 def run_container_command(args):
@@ -187,8 +186,11 @@ def create_path_and_add_data(full_path, data, is_file):
 def set_remote_registry_login_info(registry, ctx_object):
     try:
         docker_config = json.load(open('/'.join([os.path.expanduser('~'), '.docker/config.json'])))
-        auth = docker_config.get('auths', {}).get(registry, {}).get('auth')
-        if auth:
+        if (
+            auth := docker_config.get('auths', {})
+            .get(registry, {})
+            .get('auth')
+        ):
             username, password = base64.b64decode(auth).decode().split(r':')
             ctx_object['username'] = username
             ctx_object['password'] = password

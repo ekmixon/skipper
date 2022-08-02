@@ -12,7 +12,7 @@ from skipper import utils
 def get_default_net():
     # The host networking driver only works on Linux hosts, and is not supported on Docker Desktop for Mac,
     # Docker Desktop for Windows, or Docker EE for Windows Server.
-    return 'host' if sys.platform != 'darwin' and sys.platform != 'win32' else 'bridge'
+    return 'host' if sys.platform not in ['darwin', 'win32'] else 'bridge'
 
 
 # pylint: disable=too-many-arguments
@@ -132,32 +132,36 @@ def handle_volumes_bind_mount(docker_cmd, homedir, volumes, workspace):
         volumes.append('/etc/docker:/etc/docker:ro')
 
     if utils.get_runtime_command() == utils.PODMAN:
-        volumes.extend([
-            '%(workspace)s:%(workspace)s:rw,shared' % dict(workspace=workspace),
-            '%s:/opt/skipper/skipper-entrypoint.sh:rw' % utils.get_extra_file("skipper-entrypoint.sh"),
-        ])
+        volumes.extend(
+            [
+                '%(workspace)s:%(workspace)s:rw,shared'
+                % dict(workspace=workspace),
+                f'{utils.get_extra_file("skipper-entrypoint.sh")}:/opt/skipper/skipper-entrypoint.sh:rw',
+            ]
+        )
+
         if os.path.exists('/var/run/docker.sock'):
             volumes.append('/var/run/docker.sock:/var/run/docker.sock:rw')
-        if os.path.exists('/var/lib/osmosis'):
-            volumes.append('/var/lib/osmosis:/var/lib/osmosis:rw')
     else:
-        volumes.extend([
-            '%(workspace)s:%(workspace)s:rw' % dict(workspace=workspace),
-            '/var/run/docker.sock:/var/run/docker.sock:rw',
-            '%s:/opt/skipper/skipper-entrypoint.sh' % utils.get_extra_file("skipper-entrypoint.sh"),
-            ])
-        # Will fail on Mac
-        if os.path.exists('/var/lib/osmosis'):
-            volumes.append('/var/lib/osmosis:/var/lib/osmosis:rw')
+        volumes.extend(
+            [
+                '%(workspace)s:%(workspace)s:rw' % dict(workspace=workspace),
+                '/var/run/docker.sock:/var/run/docker.sock:rw',
+                f'{utils.get_extra_file("skipper-entrypoint.sh")}:/opt/skipper/skipper-entrypoint.sh',
+            ]
+        )
 
+    if os.path.exists('/var/lib/osmosis'):
+        volumes.append('/var/lib/osmosis:/var/lib/osmosis:rw')
     for volume in volumes:
         if ":" not in volume:
-            raise ValueError("Volume entry is badly-formatted - %s" % volume)
+            raise ValueError(f"Volume entry is badly-formatted - {volume}")
 
         # For OSX, map anything in /var/lib or /etc to /private
-        if sys.platform == 'darwin':
-            if volume.startswith('/etc/') or volume.startswith('/var/lib/'):
-                volume = '/private' + volume
+        if sys.platform == 'darwin' and (
+            volume.startswith('/etc/') or volume.startswith('/var/lib/')
+        ):
+            volume = f'/private{volume}'
 
         # if part of host directory is empty, skipping this mount
         if not volume.split(":")[0]:
@@ -218,6 +222,6 @@ def _destroy_network(net):
 
 
 def _network_exists(net):
-    cmd = ['network', 'ls', "-f", "NAME=%s" % net]
+    cmd = ['network', 'ls', "-f", f"NAME={net}"]
     result = utils.run_container_command(cmd)
     return net in result

@@ -11,11 +11,14 @@ from skipper import config, utils
 REGISTRY = 'registry.io:5000'
 IMAGE = 'image'
 TAG = '1234567'
-FQDN_IMAGE = REGISTRY + '/' + IMAGE + ':' + TAG
+FQDN_IMAGE = f'{REGISTRY}/{IMAGE}:{TAG}'
 
 BUILD_CONTAINER_IMAGE = 'build-container-image'
 BUILD_CONTAINER_TAG = 'build-container-tag'
-BUILD_CONTAINER_FQDN_IMAGE = REGISTRY + '/' + BUILD_CONTAINER_IMAGE + ':' + BUILD_CONTAINER_TAG
+BUILD_CONTAINER_FQDN_IMAGE = (
+    f'{REGISTRY}/{BUILD_CONTAINER_IMAGE}:{BUILD_CONTAINER_TAG}'
+)
+
 
 ENV = ["KEY1=VAL1", "KEY2=VAL2"]
 ENV_FILE_PATH = '/home/envfile.env'
@@ -24,7 +27,8 @@ ENV_FILES = ['/home/envfile1.env', '/home/envfile2.env']
 SKIPPER_CONF_CONTAINER_CONTEXT = '/some/context'
 SKIPPER_CONF_BUILD_CONTAINER_IMAGE = 'skipper-conf-build-container-image'
 SKIPPER_CONF_BUILD_CONTAINER_TAG = 'skipper-conf-build-container-tag'
-SKIPPER_CONF_BUILD_CONTAINER_FQDN_IMAGE = REGISTRY + '/' + SKIPPER_CONF_BUILD_CONTAINER_IMAGE + ':' + SKIPPER_CONF_BUILD_CONTAINER_TAG
+SKIPPER_CONF_BUILD_CONTAINER_FQDN_IMAGE = f'{REGISTRY}/{SKIPPER_CONF_BUILD_CONTAINER_IMAGE}:{SKIPPER_CONF_BUILD_CONTAINER_TAG}'
+
 SKIPPER_CONF_MAKEFILE = 'Makefile.skipper'
 SKIPPER_CONF = {
     'registry': REGISTRY,
@@ -1010,7 +1014,7 @@ class TestCLI(unittest.TestCase):
         subprocess_check_output_mock.assert_called_once_with(expected_command)
 
     @mock.patch('skipper.utils.HttpBearerAuth', autospec=True)
-    @mock.patch('glob.glob', mock.MagicMock(autospec=True, return_value=['Dockerfile.' + IMAGE]))
+    @mock.patch('glob.glob', mock.MagicMock(autospec=True, return_value=[f'Dockerfile.{IMAGE}']))
     @mock.patch('requests.delete', autospec=True)
     @mock.patch('requests.get', autospec=True)
     def test_rmi_remote(self, requests_get_mock, requests_delete_mock, requests_bearer_auth_mock):
@@ -1033,7 +1037,7 @@ class TestCLI(unittest.TestCase):
                                                      auth=requests_bearer_auth_mock())
 
     @mock.patch('skipper.utils.HttpBearerAuth', autospec=True)
-    @mock.patch('glob.glob', mock.MagicMock(autospec=True, return_value=['Dockerfile.' + IMAGE]))
+    @mock.patch('glob.glob', mock.MagicMock(autospec=True, return_value=[f'Dockerfile.{IMAGE}']))
     @mock.patch('requests.delete', autospec=True)
     @mock.patch('requests.get', autospec=True)
     def test_rmi_remote_fail(self, requests_get_mock, requests_delete_mock, requests_bearer_auth_mock):
@@ -1055,7 +1059,7 @@ class TestCLI(unittest.TestCase):
                                                                                  reference='digest')
         requests_delete_mock.assert_called_once_with(url=url, verify=False, auth=requests_bearer_auth_mock())
 
-    @mock.patch('glob.glob', mock.MagicMock(autospec=True, return_value=['Dockerfile.' + IMAGE]))
+    @mock.patch('glob.glob', mock.MagicMock(autospec=True, return_value=[f'Dockerfile.{IMAGE}']))
     def test_validate_project_image(self):
         result = self._invoke_cli(
             global_params=self.global_params,
@@ -1163,7 +1167,7 @@ class TestCLI(unittest.TestCase):
             subcmd='run',
             subcmd_params=run_params
         )
-        env = ["%s=%s" % (key, value) for key, value in six.iteritems(CONFIG_ENV_EVALUATION)]
+        env = [f"{key}={value}" for key, value in six.iteritems(CONFIG_ENV_EVALUATION)]
         expected_fqdn_image = 'skipper-conf-build-container-image:skipper-conf-build-container-tag'
         skipper_runner_run_mock.assert_called_once_with(command, fqdn_image=expected_fqdn_image, environment=env,
                                                         interactive=False, name=None, net=None, publish=(),
@@ -1247,7 +1251,10 @@ class TestCLI(unittest.TestCase):
             subcmd='run',
             subcmd_params=run_params
         )
-        env = ["%s=%s" % (key, value) for key, value in six.iteritems(CONFIG_ENV_EVALUATION)] + ENV
+        env = [
+            f"{key}={value}" for key, value in six.iteritems(CONFIG_ENV_EVALUATION)
+        ] + ENV
+
         expected_fqdn_image = 'skipper-conf-build-container-image:skipper-conf-build-container-tag'
         skipper_runner_run_mock.assert_called_once_with(command, fqdn_image=expected_fqdn_image, environment=env,
                                                         interactive=False, name=None, net=None, publish=(),

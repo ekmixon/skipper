@@ -12,7 +12,7 @@ GROUP_ID = 2000
 REGISTRY = 'registry.io:5000'
 IMAGE = 'image'
 TAG = '1234567'
-FQDN_IMAGE = REGISTRY + '/' + IMAGE + ':' + TAG
+FQDN_IMAGE = f'{REGISTRY}/{IMAGE}:{TAG}'
 
 WORKDIR = '/home/adir/work'
 HOME_DIR = '/home/adir'
@@ -25,9 +25,11 @@ ENV_FILES = [ENV_FILE_PATH, ENV_FILE_PATH]
 
 
 def get_volume_mapping(volume_mapping):
-    if sys.platform == 'darwin':
-        if volume_mapping.startswith('/etc/') or volume_mapping.startswith('/var/lib/'):
-            return '/private' + volume_mapping
+    if sys.platform == 'darwin' and (
+        volume_mapping.startswith('/etc/')
+        or volume_mapping.startswith('/var/lib/')
+    ):
+        return f'/private{volume_mapping}'
 
     return volume_mapping
 
